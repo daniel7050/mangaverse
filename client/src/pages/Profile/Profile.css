@@ -1,0 +1,32 @@
+.profile { padding: 2rem 1rem; }
+.profile-header {
+  display: flex; align-items: center; gap: 1.25rem;
+  background: var(--bg-card); padding: 1.5rem; border-radius: 12px;
+  margin-bottom: 2rem; border: 1px solid var(--border);
+}
+.profile-avatar {
+  width: 60px; height: 60px; border-radius: 50%; background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.profile-header h1 { font-size: 1.4rem; }
+.profile-email { color: var(--text-muted); font-size: 0.9rem; }
+.profile-header .btn-secondary { margin-left: auto; }
+.profile-section { margin-bottom: 2rem; }
+.profile-section h2 { margin-bottom: 1rem; font-size: 1.15rem; }
+.profile-empty, .profile-note { color: var(--text-muted); font-size: 0.9rem; }
+.progress-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.progress-item {
+  display: flex; align-items: center; gap: 1rem;
+  background: var(--bg-card); padding: 0.75rem 1rem; border-radius: var(--radius);
+  border: 1px solid var(--border); transition: var(--transition);
+}
+.progress-item:hover { border-color: var(--accent); }
+.progress-item img { width: 48px; height: 64px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.progress-title { font-weight: 600; font-size: 0.95rem; }
+.progress-meta { color: var(--text-muted); font-size: 0.82rem; margin-top: 2px; }
+.progress-continue { margin-left: auto; color: var(--accent); font-size: 0.85rem; white-space: nowrap; }
+.profile-guest { text-align: center; padding: 4rem 1rem; }
+.profile-guest h2 { margin-bottom: 0.75rem; }
+.profile-guest p { color: var(--text-secondary); margin-bottom: 1.5rem; }
+.profile-guest-links { display: flex; gap: 1rem; justify-content: center; }
