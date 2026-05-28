@@ -2,16 +2,28 @@ const Manga = require('../models/Manga');
 const Chapter = require('../models/Chapter');
 const { runScraper } = require('../scrapers/mangaScraper');
 
-// GET /api/manga — paginated list
+// GET /api/manga — paginated, filterable, sortable
 exports.getAllManga = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
-    const genre = req.query.genre;
-    const filter = genre ? { genres: genre } : {};
+    const { genre, status, sort } = req.query;
+
+    const filter = {};
+    if (genre) filter.genres = genre;
+    if (status && status !== 'all') filter.status = status;
+
+    const sortMap = {
+      viewCount: { viewCount: -1 },
+      rating:    { rating: -1 },
+      title:     { title: 1 },
+      newest:    { createdAt: -1 },
+    };
+    const sortQuery = sortMap[sort] || { createdAt: -1 };
+
     const [manga, total] = await Promise.all([
-      Manga.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Manga.find(filter).sort(sortQuery).skip(skip).limit(limit).lean(),
       Manga.countDocuments(filter)
     ]);
     res.json({ manga, total, page, pages: Math.ceil(total / limit) });
@@ -33,18 +45,26 @@ exports.getTrending = async (req, res) => {
 // GET /api/manga/search?q=
 exports.searchManga = async (req, res) => {
   try {
-    const q = req.query.q;
-    if (!q) return res.json([]);
-    const manga = await Manga.find(
-      { $text: { $search: q } },
-      { score: { $meta: 'textScore' } }
-    ).sort({ score: { $meta: 'textScore' } }).limit(20).lean();
-    // Fallback to regex if text index not hit
-    if (!manga.length) {
-      const results = await Manga.find({ title: { $regex: q, $options: 'i' } }).limit(20).lean();
-      return res.json(results);
-    }
+    const { q, genre } = req.query;
+    if (!q && !genre) return res.json([]);
+    const filter = {};
+    if (genre) filter.genres = genre;
+    if (q) filter.$or = [
+      { title: { $regex: q, $options: 'i' } },
+      { description: { $regex: q, $options: 'i' } },
+    ];
+    const manga = await Manga.find(filter).limit(24).lean();
     res.json(manga);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// GET /api/manga/genres — distinct genres list
+exports.getGenres = async (req, res) => {
+  try {
+    const genres = await Manga.distinct('genres');
+    res.json(genres.filter(Boolean).sort());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -73,7 +93,7 @@ exports.getChapters = async (req, res) => {
   }
 };
 
-// POST /api/manga/scrape (admin trigger)
+// POST /api/manga/scrape
 exports.triggerScrape = async (req, res) => {
   try {
     res.json({ message: 'Scrape started in background' });

@@ -37,3 +37,6 @@ export const updateProgress = (mangaId, lastChapter, lastPage) =>
   api.post('/user/progress', { mangaId, lastChapter, lastPage });
 
 export default api;
+
+// Genres
+export const getGenres = () => api.get('/manga/genres');
