@@ -1,28 +1,65 @@
 const router = require('express').Router();
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const { protect } = require('../middleware/auth');
 
-/**
- * AUTH ROUTES — Assigned to: Hamzat Olajuwon (@juwonabdullahi007-arc)
- *
- * TODO: Implement the following:
- *   POST /api/auth/register  — create new user, return JWT
- *   POST /api/auth/login     — validate credentials, return JWT
- *   GET  /api/auth/me        — return current user profile (protected)
- *
- * Hint: Use the User model in ../models/User.js
- * Hint: Use bcryptjs to compare passwords and jsonwebtoken to sign tokens
- * Hint: See ../middleware/auth.js for the protect middleware
- */
+const signToken = (id) =>
+  jwt.sign({ id }, process.env.JWT_SECRET || 'dev_secret', { expiresIn: '30d' });
 
-router.post('/register', (req, res) => {
-  res.status(501).json({ message: 'TODO: Hamzat — implement register endpoint' });
+// POST /api/auth/register
+router.post('/register', async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    if (!username || !email || !password)
+      return res.status(400).json({ error: 'All fields are required' });
+    if (password.length < 6)
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+    const existing = await User.findOne({ $or: [{ email }, { username }] });
+    if (existing)
+      return res.status(409).json({ error: 'Username or email already taken' });
+
+    const user = await User.create({ username, email, password });
+    const token = signToken(user._id);
+
+    res.status(201).json({
+      token,
+      user: { _id: user._id, username: user.username, email: user.email, avatar: user.avatar }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post('/login', (req, res) => {
-  res.status(501).json({ message: 'TODO: Hamzat — implement login endpoint' });
+// POST /api/auth/login
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res.status(400).json({ error: 'Email and password are required' });
+
+    const user = await User.findOne({ email });
+    if (!user || !(await user.comparePassword(password)))
+      return res.status(401).json({ error: 'Invalid email or password' });
+
+    const token = signToken(user._id);
+    res.json({
+      token,
+      user: { _id: user._id, username: user.username, email: user.email, avatar: user.avatar }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.get('/me', (req, res) => {
-  res.status(501).json({ message: 'TODO: Hamzat — implement /me endpoint (protected)' });
+// GET /api/auth/me
+router.get('/me', protect, (req, res) => {
+  res.json({
+    _id: req.user._id,
+    username: req.user.username,
+    email: req.user.email,
+    avatar: req.user.avatar
+  });
 });
 
 module.exports = router;

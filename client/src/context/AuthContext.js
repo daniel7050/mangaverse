@@ -1,31 +1,44 @@
-/**
- * AuthContext — Assigned to: Hamzat Olajuwon (@juwonabdullahi007-arc)
- *
- * TODO: Implement authentication context:
- *   - user state (null when logged out)
- *   - login(email, password) — call api login, store token, set user
- *   - register(username, email, password) — call api register, store token
- *   - logout() — clear token, set user null
- *   - loading state for initial token check
- *
- * Hint: On mount, call getMe() if token exists in localStorage to rehydrate user
- */
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { login as apiLogin, register as apiRegister, getMe } from '../utils/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // TODO: implement login, register, logout
-  const login = async () => { throw new Error('TODO: implement login') };
-  const register = async () => { throw new Error('TODO: implement register') };
-  const logout = () => { localStorage.removeItem('mv_token'); setUser(null); };
+  // Rehydrate user on mount if token exists
+  useEffect(() => {
+    const token = localStorage.getItem('mv_token');
+    if (!token) { setLoading(false); return; }
+    getMe()
+      .then(res => setUser(res.data))
+      .catch(() => localStorage.removeItem('mv_token'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const login = async (email, password) => {
+    const res = await apiLogin({ email, password });
+    localStorage.setItem('mv_token', res.data.token);
+    setUser(res.data.user);
+    return res.data.user;
+  };
+
+  const register = async (username, email, password) => {
+    const res = await apiRegister({ username, email, password });
+    localStorage.setItem('mv_token', res.data.token);
+    setUser(res.data.user);
+    return res.data.user;
+  };
+
+  const logout = () => {
+    localStorage.removeItem('mv_token');
+    setUser(null);
+  };
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

@@ -3,15 +3,18 @@ import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar/Navbar';
 import Home from './pages/Home/Home';
 import Browse from './pages/Browse/Browse';
+import Search from './pages/Search/Search';
+import Detail from './pages/Detail/Detail';
 import Read from './pages/Read/Read';
 import Profile from './pages/Profile/Profile';
+import Login from './pages/Auth/Login';
+import Register from './pages/Auth/Register';
 import { AuthProvider } from './context/AuthContext';
 
-// Placeholder for Hamzat's pages
-const Todo = ({ name }) => (
+const NotFound = () => (
   <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
-    <h2>🚧 {name}</h2>
-    <p>Assigned to: <strong>Hamzat Olajuwon</strong> (@juwonabdullahi007-arch)</p>
+    <h2>404 — Page Not Found</h2>
+    <a href="/" style={{ color: 'var(--accent)', marginTop: '1rem', display: 'block' }}>← Go Home</a>
   </div>
 );
 
@@ -20,20 +23,16 @@ export default function App() {
     <AuthProvider>
       <Navbar />
       <Routes>
-        {/* Daniel's routes */}
         <Route path="/" element={<Home />} />
         <Route path="/browse" element={<Browse />} />
+        <Route path="/search" element={<Search />} />
+        <Route path="/manga/:id" element={<Detail />} />
         <Route path="/read/:mangaId/:chapterNum" element={<Read />} />
         <Route path="/profile" element={<Profile />} />
-
-        {/* Hamzat's routes */}
-        <Route path="/manga/:id" element={<Todo name="Manga Detail Page" />} />
-        <Route path="/search" element={<Todo name="Search & Filter Page" />} />
-        <Route path="/bookmarks" element={<Todo name="Bookmarks Page" />} />
-        <Route path="/login" element={<Todo name="Login Page" />} />
-        <Route path="/register" element={<Todo name="Register Page" />} />
-
-        <Route path="*" element={<Todo name="404 — Page Not Found" />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/bookmarks" element={<Profile />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>
   );

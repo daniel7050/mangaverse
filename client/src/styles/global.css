@@ -64,3 +64,19 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 .badge-ongoing { background: #065f46; color: #6ee7b7; }
 .badge-completed { background: #1e3a5f; color: #93c5fd; }
 .badge-hiatus { background: #451a03; color: #fdba74; }
+
+/* ── Light Mode ── */
+[data-theme='light'] {
+  --bg-primary: #f0f2f5;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --text-primary: #1a1a2e;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --border: #e5e7eb;
+  --shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+[data-theme='light'] .navbar { background: #ffffff; }
+[data-theme='light'] .navbar-search input { background: #f3f4f6; color: #1a1a2e; }
+[data-theme='light'] .manga-card { background: #ffffff; }
+[data-theme='light'] .browse-sidebar { background: #ffffff; }
