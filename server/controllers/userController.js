@@ -60,3 +60,17 @@ exports.updateProgress = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// PUT /api/user/avatar
+exports.updateAvatar = async (req, res) => {
+  try {
+    const { avatar } = req.body;
+    if (!avatar) return res.status(400).json({ error: 'No avatar provided' });
+    // Limit base64 size (~500KB)
+    if (avatar.length > 700000) return res.status(400).json({ error: 'Image too large. Max 500KB.' });
+    await User.findByIdAndUpdate(req.user._id, { avatar });
+    res.json({ message: 'Avatar updated', avatar });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

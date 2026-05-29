@@ -71,3 +71,7 @@
   .detail-hero { grid-template-columns: 1fr; }
   .detail-cover { width: 160px; margin: 0 auto; }
 }
+
+/* Related manga */
+.detail-related { margin-top: 2.5rem; }
+.detail-related h2 { margin-bottom: 1rem; font-size: 1.15rem; }

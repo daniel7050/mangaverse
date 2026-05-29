@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getMangaById, getChapterList, addBookmark, removeBookmark, getBookmarks } from '../../utils/api';
+import MangaCard from '../../components/MangaCard/MangaCard';
+import { getMangaById, getChapterList, addBookmark, removeBookmark, getBookmarks, getManga } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import './Detail.css';
 
@@ -9,6 +10,7 @@ export default function Detail() {
   const { user } = useAuth();
   const [manga, setManga] = useState(null);
   const [chapters, setChapters] = useState([]);
+  const [related, setRelated] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
@@ -16,10 +18,18 @@ export default function Detail() {
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
         const [mRes, cRes] = await Promise.all([getMangaById(id), getChapterList(id)]);
         setManga(mRes.data);
         setChapters(cRes.data);
+
+        // Fetch related manga by first genre
+        if (mRes.data.genres?.length) {
+          const relRes = await getManga({ genre: mRes.data.genres[0], limit: 7 });
+          setRelated((relRes.data.manga || []).filter(m => m._id !== id).slice(0, 6));
+        }
+
         if (user) {
           const bRes = await getBookmarks();
           setBookmarked(bRes.data.some(b => b._id === id));
@@ -120,9 +130,7 @@ export default function Detail() {
                 <Link key={ch._id} to={`/read/${id}/${ch.number}`} className="chapter-item">
                   <span className="chapter-num">Chapter {ch.number}</span>
                   {ch.title && <span className="chapter-title">{ch.title}</span>}
-                  <span className="chapter-date">
-                    {new Date(ch.createdAt).toLocaleDateString()}
-                  </span>
+                  <span className="chapter-date">{new Date(ch.createdAt).toLocaleDateString()}</span>
                 </Link>
               ))}
             </div>
@@ -134,6 +142,19 @@ export default function Detail() {
           </>
         )}
       </section>
+
+      {/* Related Manga */}
+      {related.length > 0 && (
+        <section className="detail-related">
+          <div className="section-header">
+            <h2>🔗 More like this</h2>
+            <Link to={`/browse?genre=${manga.genres[0]}`}>See all</Link>
+          </div>
+          <div className="manga-grid">
+            {related.map(m => <MangaCard key={m._id} manga={m} />)}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MangaCard from '../../components/MangaCard/MangaCard';
+import useReadingProgress from '../../hooks/useReadingProgress';
 import { getManga, getTrending } from '../../utils/api';
 import './Home.css';
 
@@ -9,6 +10,7 @@ export default function Home() {
   const [latest, setLatest] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const progressMap = useReadingProgress();
 
   useEffect(() => {
     const fetch = async () => {
@@ -26,11 +28,10 @@ export default function Home() {
   }, []);
 
   if (loading) return <div className="container"><div className="spinner" /></div>;
-  if (error) return <div className="container home-error"><p>{error}</p><Link to="/browse">Browse</Link></div>;
+  if (error) return <div className="container home-error"><p>{error}</p></div>;
 
   return (
     <main className="home container">
-      {/* Hero */}
       <section className="home-hero">
         <h1>📚 MangaVerse</h1>
         <p>Discover, read and track thousands of manga titles — free, fast, forever.</p>
@@ -40,20 +41,18 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Trending */}
       {trending.length > 0 && (
         <section className="home-section">
           <div className="section-header">
             <h2>🔥 Trending Now</h2>
-            <Link to="/browse?sort=trending">See all</Link>
+            <Link to="/browse?sort=popular">See all</Link>
           </div>
           <div className="manga-grid">
-            {trending.slice(0, 6).map(m => <MangaCard key={m._id} manga={m} />)}
+            {trending.slice(0, 6).map(m => <MangaCard key={m._id} manga={m} progress={progressMap} />)}
           </div>
         </section>
       )}
 
-      {/* Latest */}
       {latest.length > 0 && (
         <section className="home-section">
           <div className="section-header">
@@ -61,15 +60,15 @@ export default function Home() {
             <Link to="/browse">See all</Link>
           </div>
           <div className="manga-grid">
-            {latest.map(m => <MangaCard key={m._id} manga={m} />)}
+            {latest.map(m => <MangaCard key={m._id} manga={m} progress={progressMap} />)}
           </div>
         </section>
       )}
 
       {trending.length === 0 && latest.length === 0 && (
         <div className="home-empty">
-          <p>No manga in the database yet.</p>
-          <p>Run a scrape from the API: <code>POST /api/manga/scrape</code></p>
+          <p>No manga yet.</p>
+          <p>Run a scrape: <code>POST /api/manga/scrape</code></p>
         </div>
       )}
     </main>

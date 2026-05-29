@@ -40,3 +40,4 @@ export default api;
 
 // Genres
 export const getGenres = () => api.get('/manga/genres');
+export const updateAvatar = (avatar) => api.put('/user/avatar', { avatar });
