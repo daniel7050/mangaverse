@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import MangaCard from '../../components/MangaCard/MangaCard';
-import { getMangaById, getChapterList, addBookmark, removeBookmark, getBookmarks, getManga } from '../../utils/api';
+import { getMangaById, getChapterList, addBookmark, removeBookmark, getBookmarks, getManga, scrapeChapters } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import './Detail.css';
 
@@ -15,33 +15,28 @@ export default function Detail() {
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [showAllChapters, setShowAllChapters] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeMsg, setScrapeMsg] = useState('');
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [mRes, cRes] = await Promise.all([getMangaById(id), getChapterList(id)]);
-        setManga(mRes.data);
-        setChapters(cRes.data);
-
-        // Fetch related manga by first genre
-        if (mRes.data.genres?.length) {
-          const relRes = await getManga({ genre: mRes.data.genres[0], limit: 7 });
-          setRelated((relRes.data.manga || []).filter(m => m._id !== id).slice(0, 6));
-        }
-
-        if (user) {
-          const bRes = await getBookmarks();
-          setBookmarked(bRes.data.some(b => b._id === id));
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [mRes, cRes] = await Promise.all([getMangaById(id), getChapterList(id)]);
+      setManga(mRes.data);
+      setChapters(cRes.data);
+      if (mRes.data.genres?.length) {
+        const relRes = await getManga({ genre: mRes.data.genres[0], limit: 7 });
+        setRelated((relRes.data.manga || []).filter(m => m._id !== id).slice(0, 6));
       }
-    };
-    load();
-  }, [id, user]);
+      if (user) {
+        const bRes = await getBookmarks();
+        setBookmarked(bRes.data.some(b => b._id === id));
+      }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadData(); }, [id, user]);
 
   const toggleBookmark = async () => {
     if (!user) return;
@@ -53,6 +48,16 @@ export default function Detail() {
     finally { setBookmarkLoading(false); }
   };
 
+  const handleScrapeChapters = async () => {
+    setScraping(true); setScrapeMsg('');
+    try {
+      await scrapeChapters(id);
+      setScrapeMsg('✅ Scraping chapters… refresh in 15 seconds');
+      setTimeout(() => { setScrapeMsg(''); loadData(); }, 15000);
+    } catch { setScrapeMsg('❌ Failed to scrape chapters'); }
+    finally { setScraping(false); }
+  };
+
   if (loading) return <div className="container"><div className="spinner" /></div>;
   if (!manga) return <div className="container detail-error">Manga not found</div>;
 
@@ -62,13 +67,11 @@ export default function Detail() {
 
   return (
     <main className="detail container">
-      {/* Hero */}
       <div className="detail-hero">
         <div className="detail-cover">
           {manga.coverImage
             ? <img src={manga.coverImage} alt={manga.title} />
-            : <div className="detail-cover-placeholder">📖</div>
-          }
+            : <div className="detail-cover-placeholder">📖</div>}
         </div>
         <div className="detail-info">
           <h1 className="detail-title">{manga.title}</h1>
@@ -78,51 +81,43 @@ export default function Detail() {
             {manga.rating > 0 && <span>⭐ {manga.rating.toFixed(1)}</span>}
             <span>👁️ {manga.viewCount.toLocaleString()} views</span>
           </div>
-
           {manga.genres.length > 0 && (
             <div className="detail-genres">
-              {manga.genres.map(g => (
-                <Link key={g} to={`/browse?genre=${g}`} className="genre-tag">{g}</Link>
-              ))}
+              {manga.genres.map(g => <Link key={g} to={`/browse?genre=${g}`} className="genre-tag">{g}</Link>)}
             </div>
           )}
-
-          {manga.description && (
-            <p className="detail-description">{manga.description}</p>
-          )}
-
+          {manga.description && <p className="detail-description">{manga.description}</p>}
           <div className="detail-actions">
-            {firstChapter ? (
-              <Link to={`/read/${id}/${firstChapter.number}`} className="btn-primary">
-                📖 Start Reading
-              </Link>
-            ) : (
-              <span className="btn-primary btn-disabled">No chapters yet</span>
-            )}
+            {firstChapter
+              ? <Link to={`/read/${id}/${firstChapter.number}`} className="btn-primary">📖 Start Reading</Link>
+              : <button className="btn-primary btn-scrape-ch" onClick={handleScrapeChapters} disabled={scraping}>
+                  {scraping ? '⏳ Fetching…' : '🕷️ Load Chapters'}
+                </button>
+            }
             {lastChapter && lastChapter.number !== firstChapter?.number && (
-              <Link to={`/read/${id}/${lastChapter.number}`} className="btn-secondary">
-                ⏭ Latest Chapter
-              </Link>
+              <Link to={`/read/${id}/${lastChapter.number}`} className="btn-secondary">⏭ Latest</Link>
             )}
             {user && (
-              <button
-                className={`btn-bookmark ${bookmarked ? 'bookmarked' : ''}`}
-                onClick={toggleBookmark} disabled={bookmarkLoading}
-              >
+              <button className={`btn-bookmark ${bookmarked ? 'bookmarked' : ''}`} onClick={toggleBookmark} disabled={bookmarkLoading}>
                 {bookmarked ? '🔖 Saved' : '+ Save'}
               </button>
             )}
           </div>
+          {scrapeMsg && <p className="scrape-msg" style={{marginTop:'0.75rem', fontSize:'0.85rem', color:'var(--text-muted)'}}>{scrapeMsg}</p>}
         </div>
       </div>
 
-      {/* Chapter List */}
       <section className="detail-chapters">
         <div className="section-header">
           <h2>📋 Chapters ({chapters.length})</h2>
+          {chapters.length === 0 && (
+            <button className="btn-scrape-small" onClick={handleScrapeChapters} disabled={scraping}>
+              {scraping ? 'Loading…' : '🕷️ Fetch chapters'}
+            </button>
+          )}
         </div>
         {chapters.length === 0 ? (
-          <p className="detail-empty">No chapters available yet.</p>
+          <p className="detail-empty">No chapters yet — click "Fetch chapters" to load them.</p>
         ) : (
           <>
             <div className="chapter-list">
@@ -143,16 +138,13 @@ export default function Detail() {
         )}
       </section>
 
-      {/* Related Manga */}
       {related.length > 0 && (
         <section className="detail-related">
           <div className="section-header">
             <h2>🔗 More like this</h2>
             <Link to={`/browse?genre=${manga.genres[0]}`}>See all</Link>
           </div>
-          <div className="manga-grid">
-            {related.map(m => <MangaCard key={m._id} manga={m} />)}
-          </div>
+          <div className="manga-grid">{related.map(m => <MangaCard key={m._id} manga={m} />)}</div>
         </section>
       )}
     </main>

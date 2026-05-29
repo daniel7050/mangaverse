@@ -102,3 +102,14 @@ exports.triggerScrape = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// POST /api/manga/:id/scrape-chapters
+exports.triggerChapterScrape = async (req, res) => {
+  try {
+    const { scrapeChaptersForManga } = require('../scrapers/chapterScraper');
+    res.json({ message: 'Chapter scrape started' });
+    scrapeChaptersForManga(req.params.id).catch(console.error);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
