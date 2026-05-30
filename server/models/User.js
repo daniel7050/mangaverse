@@ -12,7 +12,9 @@ const userSchema = new mongoose.Schema({
     lastChapter: { type: Number, default: 0 },
     lastPage: { type: Number, default: 0 },
     updatedAt: { type: Date, default: Date.now }
-  }]
+  }],
+  resetToken: { type: String, default: null },
+  resetTokenExpiry: { type: Date, default: null },
 }, { timestamps: true });
 
 userSchema.pre('save', async function(next) {

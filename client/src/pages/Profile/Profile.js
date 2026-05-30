@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getProgress, getBookmarks, updateAvatar } from '../../utils/api';
+import { getProgress, getBookmarks, updateAvatar, changePassword } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import MangaCard from '../../components/MangaCard/MangaCard';
 import './Profile.css';
@@ -13,6 +13,13 @@ export default function Profile() {
   const [avatar, setAvatar] = useState('');
   const [avatarLoading, setAvatarLoading] = useState(false);
   const fileRef = useRef();
+
+  // Change password
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' });
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -30,21 +37,32 @@ export default function Profile() {
     if (!file) return;
     if (!file.type.startsWith('image/')) return alert('Please select an image file');
     if (file.size > 500000) return alert('Image too large. Max 500KB.');
-
     setAvatarLoading(true);
     const reader = new FileReader();
     reader.onload = async () => {
-      const base64 = reader.result;
       try {
-        await updateAvatar(base64);
-        setAvatar(base64);
-      } catch (err) {
-        alert('Failed to upload avatar');
-      } finally {
-        setAvatarLoading(false);
-      }
+        await updateAvatar(reader.result);
+        setAvatar(reader.result);
+      } catch { alert('Failed to upload avatar'); }
+      finally { setAvatarLoading(false); }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleChangePassword = async e => {
+    e.preventDefault();
+    setPwError(''); setPwSuccess('');
+    if (pwForm.newPw.length < 6) return setPwError('New password must be at least 6 characters');
+    if (pwForm.newPw !== pwForm.confirm) return setPwError('Passwords do not match');
+    setPwLoading(true);
+    try {
+      await changePassword(pwForm.current, pwForm.newPw);
+      setPwSuccess('Password changed successfully!');
+      setPwForm({ current: '', newPw: '', confirm: '' });
+      setTimeout(() => { setPwSuccess(''); setShowChangePw(false); }, 2000);
+    } catch (err) {
+      setPwError(err.response?.data?.error || 'Failed to change password');
+    } finally { setPwLoading(false); }
   };
 
   if (!user) return (
@@ -60,6 +78,7 @@ export default function Profile() {
 
   return (
     <main className="profile container">
+      {/* Header */}
       <div className="profile-header">
         <div className="profile-avatar-wrap" onClick={handleAvatarClick} title="Click to change avatar">
           {avatarLoading
@@ -71,13 +90,38 @@ export default function Profile() {
           <div className="profile-avatar-overlay">📷</div>
           <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleAvatarChange} />
         </div>
-        <div>
+        <div className="profile-user-info">
           <h1>{user.username}</h1>
           <p className="profile-email">{user.email}</p>
           <p className="profile-hint">Click avatar to change photo</p>
         </div>
-        <button className="btn-secondary" onClick={logout} style={{marginLeft:'auto'}}>Log Out</button>
+        <div className="profile-header-actions">
+          <button className="btn-change-pw" onClick={() => setShowChangePw(s => !s)}>
+            🔑 {showChangePw ? 'Cancel' : 'Change Password'}
+          </button>
+          <button className="btn-secondary" onClick={logout}>Log Out</button>
+        </div>
       </div>
+
+      {/* Change Password */}
+      {showChangePw && (
+        <div className="profile-change-pw">
+          <h3>🔑 Change Password</h3>
+          {pwError && <div className="pw-error">{pwError}</div>}
+          {pwSuccess && <div className="pw-success">{pwSuccess}</div>}
+          <form onSubmit={handleChangePassword} className="pw-form">
+            <input type="password" placeholder="Current password"
+              value={pwForm.current} onChange={e => setPwForm({...pwForm, current: e.target.value})} required />
+            <input type="password" placeholder="New password (min. 6 chars)"
+              value={pwForm.newPw} onChange={e => setPwForm({...pwForm, newPw: e.target.value})} required minLength={6} />
+            <input type="password" placeholder="Confirm new password"
+              value={pwForm.confirm} onChange={e => setPwForm({...pwForm, confirm: e.target.value})} required />
+            <button type="submit" className="btn-primary" disabled={pwLoading}>
+              {pwLoading ? 'Saving…' : 'Save New Password'}
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Reading Progress */}
       <section className="profile-section">

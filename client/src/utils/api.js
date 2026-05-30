@@ -42,3 +42,6 @@ export default api;
 export const getGenres = () => api.get('/manga/genres');
 export const updateAvatar = (avatar) => api.put('/user/avatar', { avatar });
 export const scrapeChapters = (mangaId) => api.post(`/manga/${mangaId}/scrape-chapters`);
+export const forgotPassword = (email) => api.post('/auth/forgot-password', { email });
+export const resetPassword = (email, resetCode, newPassword) => api.post('/auth/reset-password', { email, resetCode, newPassword });
+export const changePassword = (currentPassword, newPassword) => api.post('/auth/change-password', { currentPassword, newPassword });
