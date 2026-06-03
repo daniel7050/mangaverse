@@ -1,31 +1,8 @@
 const axios = require('axios');
 const Manga = require('../models/Manga');
-const Chapter = require('../models/Chapter');
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const slugify = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-// Fetch manga that actually have English chapters on MangaDex
-const scrapeMangaList = async (limit = 25, offset = 0) => {
-  try {
-    const { data } = await axios.get('https://api.mangadex.org/manga', {
-      params: {
-        limit,
-        offset,
-        'order[followedCount]': 'desc',
-        'availableTranslatedLanguage[]': ['en'],
-        'hasAvailableChapters': true, // Only manga WITH chapters
-        'contentRating[]': ['safe', 'suggestive'],
-      },
-      timeout: 15000,
-      headers: { 'User-Agent': 'MangaVerse/1.0' }
-    });
-    return data.data || [];
-  } catch (err) {
-    console.error('Scraper error:', err.message);
-    return [];
-  }
-};
 
 const getCoverImage = async (mangaId, coverId) => {
   try {
@@ -43,7 +20,7 @@ const saveMangaToDB = async (mangaData) => {
   const coverImage = coverRel ? await getCoverImage(mangaData.id, coverRel.id) : '';
   const authorRel = mangaData.relationships?.find(r => r.type === 'author');
 
-  const manga = await Manga.findOneAndUpdate(
+  return await Manga.findOneAndUpdate(
     { slug },
     {
       title, slug,
@@ -57,27 +34,69 @@ const saveMangaToDB = async (mangaData) => {
     },
     { upsert: true, new: true }
   );
-  return manga;
+};
+
+// Check if a manga has EN chapters on MangaDex
+const hasEnglishChapters = async (mangaId) => {
+  try {
+    const { data } = await axios.get('https://api.mangadex.org/chapter', {
+      params: {
+        manga: mangaId,
+        limit: 1,
+        'translatedLanguage[]': ['en'],
+        'contentRating[]': ['safe', 'suggestive'],
+        'includeExternalUrl': 0
+      },
+      timeout: 8000,
+      headers: { 'User-Agent': 'MangaVerse/1.0' }
+    });
+    return (data.total || 0) > 0;
+  } catch { return false; }
 };
 
 const runScraper = async () => {
-  console.log('🕷️  Starting manga scraper (with available EN chapters only)...');
-  const results = await scrapeMangaList(25);
-  console.log(`📦 Found ${results.length} manga with EN chapters`);
+  console.log('🕷️  Starting manga scraper...');
+
+  // Use MangaDex feed — manga recently updated with EN chapters
+  const { data } = await axios.get('https://api.mangadex.org/manga', {
+    params: {
+      limit: 50,
+      'order[latestUploadedChapter]': 'desc', // recently updated
+      'availableTranslatedLanguage[]': ['en'],
+      'contentRating[]': ['safe', 'suggestive'],
+      'includes[]': ['cover_art', 'author'],
+    },
+    timeout: 15000,
+    headers: { 'User-Agent': 'MangaVerse/1.0' }
+  });
+
+  const results = data.data || [];
+  console.log(`📦 Found ${results.length} recently updated manga`);
 
   const saved = [];
   for (const item of results) {
     try {
+      // Quick check — does this manga have EN chapters?
+      const mangaId = item.id;
+      const hasChapters = await hasEnglishChapters(mangaId);
+      if (!hasChapters) {
+        console.log(`  ⏭ Skipping (no EN chapters): ${item.attributes.title?.en || mangaId}`);
+        await sleep(200);
+        continue;
+      }
+
       const manga = await saveMangaToDB(item);
+      console.log(`  ✅ Saved: ${manga.title}`);
       saved.push(manga);
-      await sleep(200);
+      await sleep(300);
     } catch (err) {
-      console.error(`Failed to save ${item.id}:`, err.message);
+      console.error(`  ❌ Failed:`, err.message);
     }
   }
-  console.log(`✅ Scraped ${saved.length} manga titles`);
 
-  // Auto-trigger chapter scraping
+  console.log(`\n✅ Scraped ${saved.length} manga with EN chapters`);
+
+  // Auto-trigger chapter scraping for new manga
   try {
     const { scrapeAllChapters } = require('./chapterScraper');
     await scrapeAllChapters();
@@ -88,4 +107,4 @@ const runScraper = async () => {
   return saved;
 };
 
-module.exports = { runScraper, scrapeMangaList, saveMangaToDB };
+module.exports = { runScraper, saveMangaToDB };
