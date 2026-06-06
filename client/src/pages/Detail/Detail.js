@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import MangaCard from '../../components/MangaCard/MangaCard';
 import { getMangaById, getChapterList, addBookmark, removeBookmark, getBookmarks, getManga, scrapeChapters } from '../../utils/api';
@@ -18,25 +18,42 @@ export default function Detail() {
   const [scraping, setScraping] = useState(false);
   const [scrapeMsg, setScrapeMsg] = useState('');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    // Reset state immediately when id changes
+    setManga(null);
+    setChapters([]);
+    setRelated([]);
     setLoading(true);
+    setBookmarked(false);
+    setShowAllChapters(false);
+    setScrapeMsg('');
+
     try {
       const [mRes, cRes] = await Promise.all([getMangaById(id), getChapterList(id)]);
       setManga(mRes.data);
       setChapters(cRes.data);
+
       if (mRes.data.genres?.length) {
         const relRes = await getManga({ genre: mRes.data.genres[0], limit: 7 });
         setRelated((relRes.data.manga || []).filter(m => m._id !== id).slice(0, 6));
       }
+
       if (user) {
         const bRes = await getBookmarks();
         setBookmarked(bRes.data.some(b => b._id === id));
       }
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, user]);
 
-  useEffect(() => { loadData(); }, [id, user]);
+  useEffect(() => {
+    loadData();
+    // Scroll to top when navigating to a new manga
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [loadData]);
 
   const toggleBookmark = async () => {
     if (!user) return;
@@ -58,7 +75,13 @@ export default function Detail() {
     finally { setScraping(false); }
   };
 
-  if (loading) return <div className="container"><div className="spinner" /></div>;
+  if (loading) return (
+    <div className="container" style={{ paddingTop: '4rem', textAlign: 'center' }}>
+      <div className="spinner" />
+      <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>Loading manga…</p>
+    </div>
+  );
+
   if (!manga) return <div className="container detail-error">Manga not found</div>;
 
   const visibleChapters = showAllChapters ? chapters : chapters.slice(0, 20);
@@ -103,7 +126,7 @@ export default function Detail() {
               </button>
             )}
           </div>
-          {scrapeMsg && <p className="scrape-msg" style={{marginTop:'0.75rem', fontSize:'0.85rem', color:'var(--text-muted)'}}>{scrapeMsg}</p>}
+          {scrapeMsg && <p style={{marginTop:'0.75rem', fontSize:'0.85rem', color:'var(--text-muted)'}}>{scrapeMsg}</p>}
         </div>
       </div>
 

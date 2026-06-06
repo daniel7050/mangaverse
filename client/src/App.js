@@ -10,6 +10,7 @@ import Profile from './pages/Profile/Profile';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import { AuthProvider } from './context/AuthContext';
+import useScrollTop from './hooks/useScrollTop';
 
 const NotFound = () => (
   <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
@@ -18,22 +19,29 @@ const NotFound = () => (
   </div>
 );
 
+function AppRoutes() {
+  useScrollTop(); // scroll to top on every navigation
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/browse" element={<Browse />} />
+      <Route path="/search" element={<Search />} />
+      <Route path="/manga/:id" element={<Detail />} />
+      <Route path="/read/:mangaId/:chapterNum" element={<Read />} />
+      <Route path="/profile" element={<Profile />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/bookmarks" element={<Profile />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/browse" element={<Browse />} />
-        <Route path="/search" element={<Search />} />
-        <Route path="/manga/:id" element={<Detail />} />
-        <Route path="/read/:mangaId/:chapterNum" element={<Read />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/bookmarks" element={<Profile />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AppRoutes />
     </AuthProvider>
   );
 }
