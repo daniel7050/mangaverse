@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import MangaCard from '../../components/MangaCard/MangaCard';
-import { getMangaById, getChapterList, addBookmark, removeBookmark, getBookmarks, getManga, scrapeChapters } from '../../utils/api';
+import { getMangaById, getChapterList, addBookmark, removeBookmark, getBookmarks, getManga } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import axios from 'axios';
 import './Detail.css';
+
+const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export default function Detail() {
   const { id } = useParams();
@@ -16,43 +19,29 @@ export default function Detail() {
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [showAllChapters, setShowAllChapters] = useState(false);
   const [scraping, setScraping] = useState(false);
-  const [scrapeMsg, setScrapeMsg] = useState('');
 
   const loadData = useCallback(async () => {
-    // Reset state immediately when id changes
-    setManga(null);
-    setChapters([]);
-    setRelated([]);
-    setLoading(true);
-    setBookmarked(false);
-    setShowAllChapters(false);
-    setScrapeMsg('');
-
+    setManga(null); setChapters([]); setRelated([]);
+    setLoading(true); setBookmarked(false); setShowAllChapters(false);
     try {
       const [mRes, cRes] = await Promise.all([getMangaById(id), getChapterList(id)]);
       setManga(mRes.data);
       setChapters(cRes.data);
-
       if (mRes.data.genres?.length) {
         const relRes = await getManga({ genre: mRes.data.genres[0], limit: 7 });
         setRelated((relRes.data.manga || []).filter(m => m._id !== id).slice(0, 6));
       }
-
       if (user) {
         const bRes = await getBookmarks();
         setBookmarked(bRes.data.some(b => b._id === id));
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   }, [id, user]);
 
   useEffect(() => {
     loadData();
-    // Scroll to top when navigating to a new manga
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }, [loadData]);
 
   const toggleBookmark = async () => {
@@ -66,13 +55,23 @@ export default function Detail() {
   };
 
   const handleScrapeChapters = async () => {
-    setScraping(true); setScrapeMsg('');
+    setScraping(true);
     try {
-      await scrapeChapters(id);
-      setScrapeMsg('✅ Scraping chapters… refresh in 15 seconds');
-      setTimeout(() => { setScrapeMsg(''); loadData(); }, 15000);
-    } catch { setScrapeMsg('❌ Failed to scrape chapters'); }
-    finally { setScraping(false); }
+      await axios.post(`${API}/manga/${id}/scrape-chapters`);
+      // Poll for chapters every 3 seconds until they appear
+      const poll = setInterval(async () => {
+        try {
+          const res = await getChapterList(id);
+          if (res.data.length > 0) {
+            setChapters(res.data);
+            clearInterval(poll);
+            setScraping(false);
+          }
+        } catch { clearInterval(poll); setScraping(false); }
+      }, 3000);
+      // Stop polling after 60 seconds max
+      setTimeout(() => { clearInterval(poll); setScraping(false); }, 60000);
+    } catch { setScraping(false); }
   };
 
   if (loading) return (
@@ -110,57 +109,61 @@ export default function Detail() {
             </div>
           )}
           {manga.description && <p className="detail-description">{manga.description}</p>}
+
           <div className="detail-actions">
-            {firstChapter
-              ? <Link to={`/read/${id}/${firstChapter.number}`} className="btn-primary">📖 Start Reading</Link>
-              : <button className="btn-primary btn-scrape-ch" onClick={handleScrapeChapters} disabled={scraping}>
-                  {scraping ? '⏳ Fetching…' : '🕷️ Load Chapters'}
-                </button>
-            }
+            {firstChapter ? (
+              <Link to={`/read/${id}/${firstChapter.number}`} className="btn-primary">📖 Start Reading</Link>
+            ) : (
+              <button
+                className="btn-primary btn-scrape-ch"
+                onClick={handleScrapeChapters}
+                disabled={scraping}
+              >
+                {scraping
+                  ? <><span className="btn-spinner" /> Loading Chapters…</>
+                  : '🕷️ Load Chapters'
+                }
+              </button>
+            )}
             {lastChapter && lastChapter.number !== firstChapter?.number && (
               <Link to={`/read/${id}/${lastChapter.number}`} className="btn-secondary">⏭ Latest</Link>
             )}
             {user && (
-              <button className={`btn-bookmark ${bookmarked ? 'bookmarked' : ''}`} onClick={toggleBookmark} disabled={bookmarkLoading}>
+              <button
+                className={`btn-bookmark ${bookmarked ? 'bookmarked' : ''}`}
+                onClick={toggleBookmark} disabled={bookmarkLoading}
+              >
                 {bookmarked ? '🔖 Saved' : '+ Save'}
               </button>
             )}
           </div>
-          {scrapeMsg && <p style={{marginTop:'0.75rem', fontSize:'0.85rem', color:'var(--text-muted)'}}>{scrapeMsg}</p>}
         </div>
       </div>
 
-      <section className="detail-chapters">
-        <div className="section-header">
-          <h2>📋 Chapters ({chapters.length})</h2>
-          {chapters.length === 0 && (
-            <button className="btn-scrape-small" onClick={handleScrapeChapters} disabled={scraping}>
-              {scraping ? 'Loading…' : '🕷️ Fetch chapters'}
+      {/* Chapter List — only show section if chapters exist */}
+      {chapters.length > 0 && (
+        <section className="detail-chapters">
+          <div className="section-header">
+            <h2>📋 Chapters ({chapters.length})</h2>
+          </div>
+          <div className="chapter-list">
+            {visibleChapters.map(ch => (
+              <Link key={ch._id} to={`/read/${id}/${ch.number}`} className="chapter-item">
+                <span className="chapter-num">Chapter {ch.number}</span>
+                {ch.title && <span className="chapter-title">{ch.title}</span>}
+                <span className="chapter-date">{new Date(ch.createdAt).toLocaleDateString()}</span>
+              </Link>
+            ))}
+          </div>
+          {chapters.length > 20 && (
+            <button className="btn-loadmore" onClick={() => setShowAllChapters(s => !s)}>
+              {showAllChapters ? 'Show less' : `Show all ${chapters.length} chapters`}
             </button>
           )}
-        </div>
-        {chapters.length === 0 ? (
-          <p className="detail-empty">No chapters yet — click "Fetch chapters" to load them.</p>
-        ) : (
-          <>
-            <div className="chapter-list">
-              {visibleChapters.map(ch => (
-                <Link key={ch._id} to={`/read/${id}/${ch.number}`} className="chapter-item">
-                  <span className="chapter-num">Chapter {ch.number}</span>
-                  {ch.title && <span className="chapter-title">{ch.title}</span>}
-                  <span className="chapter-date">{new Date(ch.createdAt).toLocaleDateString()}</span>
-                </Link>
-              ))}
-            </div>
-            {chapters.length > 20 && (
-              <button className="btn-loadmore" onClick={() => setShowAllChapters(s => !s)}>
-                {showAllChapters ? 'Show less' : `Show all ${chapters.length} chapters`}
-              </button>
-            )}
-          </>
-        )}
-      </section>
+        </section>
+      )}
 
+      {/* Related Manga */}
       {related.length > 0 && (
         <section className="detail-related">
           <div className="section-header">

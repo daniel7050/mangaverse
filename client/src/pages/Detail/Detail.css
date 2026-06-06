@@ -85,3 +85,18 @@
   padding: 3px 10px; border-radius: var(--radius); transition: var(--transition);
 }
 .btn-scrape-small:hover { background: var(--accent); color: #fff; }
+
+/* Button loading spinner */
+.btn-scrape-ch {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: var(--accent); color: #fff; padding: 0.6rem 1.25rem;
+  border-radius: var(--radius); font-weight: 600; transition: var(--transition);
+  cursor: pointer;
+}
+.btn-scrape-ch:disabled { opacity: 0.8; cursor: not-allowed; }
+.btn-spinner {
+  width: 14px; height: 14px; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.7s linear infinite; display: inline-block;
+}
