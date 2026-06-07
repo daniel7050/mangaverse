@@ -1,16 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './MangaCard.css';
 
 export default function MangaCard({ manga, progress }) {
   const { _id, title, coverImage, status, chapterCount, rating } = manga;
   const lastRead = progress?.[_id];
+  const [imgError, setImgError] = useState(false);
 
   return (
     <Link to={`/manga/${_id}`} className="manga-card">
       <div className="manga-card-cover">
-        {coverImage
-          ? <img src={coverImage} alt={title} loading="lazy" />
+        {coverImage && !imgError
+          ? <img
+              src={coverImage}
+              alt={title}
+              loading="lazy"
+              onError={() => setImgError(true)}
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
+            />
           : <div className="manga-card-placeholder">📖</div>
         }
         <span className={`badge badge-${status}`}>{status}</span>
