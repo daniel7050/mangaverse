@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { proxyCover } from '../../utils/imageProxy';
 import MangaCard from '../../components/MangaCard/MangaCard';
 import { getMangaById, getChapterList, addBookmark, removeBookmark, getBookmarks, getManga } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -92,7 +93,7 @@ export default function Detail() {
       <div className="detail-hero">
         <div className="detail-cover">
           {manga.coverImage
-            ? <img src={manga.coverImage} alt={manga.title} />
+            ? <img src={proxyCover(manga.coverImage)} alt={manga.title} onError={e => e.target.style.display='none'} />
             : <div className="detail-cover-placeholder">📖</div>}
         </div>
         <div className="detail-info">
